@@ -62,9 +62,12 @@ Stop checking cards one by one! This app uses **Computer Vision (via Google Gemi
 
 - Connect your GitHub repository to Vercel via the Vercel dashboard.
 - In the Vercel project settings, add an Environment Variable named `VITE_GEMINI_API_KEY` (Production & Preview as needed) and paste your API key there.
+ - In the Vercel project settings, add an Environment Variable named `GEMINI_API_KEY` (Production & Preview as needed) and paste your API key there. This project proxies Gemini requests through a serverless endpoint (`/api/gemini/scan`) so the key stays server-side and is never exposed to the browser or GitHub.
 - Do NOT commit your `.env` file. This repository uses `.env` locally for convenience, but `.env` is listed in `.gitignore` and should never be pushed.
 - Use `.env.example` as a template for contributors.
 - If you accidentally pushed a secret to GitHub, rotate the key immediately and remove it from history (or ask for help to scrub it).
+
+Important: this repository uses a serverless proxy for Gemini. Do NOT place your production `GEMINI_API_KEY` in a client `.env` file (VITE_*), because those are exposed to the browser. Use Vercel's environment settings to store `GEMINI_API_KEY` instead.
 
 Vercel will run `npm run build` and serve the `dist/` directory by default (see `vercel.json`).
 
