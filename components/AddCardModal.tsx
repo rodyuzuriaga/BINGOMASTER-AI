@@ -100,8 +100,9 @@ const AddCardModal: React.FC<AddCardModalProps> = ({ isOpen, onClose, onAdd, dim
     try {
       setScanStatus("Processing image...");
       const base64 = await fileToGenerativePart(file);
-      
-      if (!isScanning && previewUrl !== url) return; // Check if cancelled
+
+      // If the operation was cancelled while reading the file, abort silently
+      if (abortControllerRef.current?.signal.aborted) return;
 
       setScanStatus("Identifying numbers with AI...");
       const scannedNumbers = await scanBingoCard(base64, dimensions);
