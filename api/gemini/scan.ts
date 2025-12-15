@@ -6,68 +6,72 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const { image, dimensions } = req.body ?? {};
-  if (!image || !dimensions) return res.status(400).json({ error: 'Missing image or dimensions' });
+  if (!image) return res.status(400).json({ error: 'Missing image' });
 
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) return res.status(500).json({ error: 'Server misconfigured: missing GEMINI_API_KEY' });
-
   try {
-    const ai = new GoogleGenAI({ apiKey });
+    if (!apiKey) {
+      // If no key, return mocked detection for development
+      const rows = dimensions?.rows ?? 5;
+      const cols = dimensions?.cols ?? 5;
+      const grid = Array.from({ length: rows }, (_, r) =>
+        Array.from({ length: cols }, (_, c) => ((r * cols + c + 1) % 75) + 1)
+      ).map(row => row.map(n => (n === 0 ? null : n)));
+      return res.status(200).json({ rows, cols, grid });
+    }
 
-    const prompt = `
-      Analyze this image of a Bingo card. It should be a grid with ${dimensions.rows} rows and ${dimensions.cols} columns.
-      Extract the numbers into a JSON 2D array (rows x cols).
-      - If a cell is a "Free Space", star, or empty, use the value 0.
-      - Ensure the output is strictly a ${dimensions.rows}x${dimensions.cols} array of integers.
-      - Return ONLY the JSON.
-    `;
+    const ai = new GoogleGenAI({ apiKey });
+    const detect = !dimensions;
+    const prompt = detect ?
+      `Detect the grid size (rows and columns) of the Bingo card in the provided image, then extract the numbers into a JSON object {"rows": <n>, "cols": <m>, "grid": [[...]]}. Use 0 for free spaces. Return ONLY the JSON object.` :
+      `Analyze this image of a Bingo card. It should be a grid with ${dimensions.rows} rows and ${dimensions.cols} columns. Extract the numbers into a JSON 2D array (rows x cols). Use 0 for free spaces. Return ONLY the JSON array.`;
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: {
         parts: [
-          {
-            inlineData: {
-              mimeType: 'image/jpeg',
-              data: image
-            }
-          },
+          { inlineData: { mimeType: 'image/jpeg', data: image } },
           { text: prompt }
         ]
       },
       config: {
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: Type.ARRAY,
-          items: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.INTEGER
-            }
-          }
-        }
+        responseMimeType: 'application/json'
       }
     });
 
     const jsonText = response.text;
     if (!jsonText) throw new Error('No text returned from AI');
 
-    const parsedData: number[][] = JSON.parse(jsonText);
+    const parsed = JSON.parse(jsonText);
+    // parsed can either be an array (grid) or an object {rows, cols, grid}
+    let rows = dimensions?.rows;
+    let cols = dimensions?.cols;
+    let rawGrid: number[][];
 
-    const normalizedData = parsedData.map((row: number[]) => row.map(num => (num === 0 ? null : num)));
-
-    // Pad/cut to exact dimensions
-    if (normalizedData.length < dimensions.rows) {
-      const missingRows = dimensions.rows - normalizedData.length;
-      for (let i = 0; i < missingRows; i++) normalizedData.push(Array(dimensions.cols).fill(null));
+    if (Array.isArray(parsed)) {
+      rawGrid = parsed as number[][];
+      rows = rows ?? rawGrid.length;
+      cols = cols ?? (rawGrid[0]?.length ?? 0);
+    } else if (parsed && parsed.grid) {
+      rawGrid = parsed.grid as number[][];
+      rows = parsed.rows ?? rawGrid.length;
+      cols = parsed.cols ?? (rawGrid[0]?.length ?? 0);
+    } else {
+      throw new Error('Unexpected response from AI');
     }
 
-    const finalGrid = normalizedData.slice(0, dimensions.rows).map((row: any[]) => {
-      if (row.length < dimensions.cols) return [...row, ...Array(dimensions.cols - row.length).fill(null)];
-      return row.slice(0, dimensions.cols);
+    const normalized = rawGrid.map((row: number[]) => row.map(n => (n === 0 ? null : n)));
+
+    // Ensure exact dimensions
+    if (normalized.length < rows) {
+      for (let i = normalized.length; i < rows; i++) normalized.push(Array(cols).fill(null));
+    }
+    const finalGrid = normalized.slice(0, rows).map(row => {
+      if (row.length < cols) return [...row, ...Array(cols - row.length).fill(null)];
+      return row.slice(0, cols);
     });
 
-    res.status(200).json({ grid: finalGrid });
+    return res.status(200).json({ rows, cols, grid: finalGrid });
   } catch (error) {
     console.error('Server scan error:', error);
     res.status(500).json({ error: 'Failed to scan card' });

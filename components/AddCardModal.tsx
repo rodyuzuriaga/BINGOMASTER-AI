@@ -104,17 +104,31 @@ const AddCardModal: React.FC<AddCardModalProps> = ({ isOpen, onClose, onAdd, dim
       // If the operation was cancelled while reading the file, abort silently
       if (abortControllerRef.current?.signal.aborted) return;
 
-      setScanStatus("Identifying numbers with AI...");
-      const scannedNumbers = await scanBingoCard(base64, dimensions);
-      
-      // If user cancelled during await, abort update
+      setScanStatus("Identifying numbers with AI (detecting grid size)...");
+      // Try automatic detection first (no dims). If it fails, fall back to using provided dimensions.
+      let result;
+      try {
+        result = await scanBingoCard(base64); // ask server to detect size
+      } catch (err) {
+        // fallback to explicit dimensions
+        setScanStatus("Auto-detect failed, retrying with selected dimensions...");
+        result = await scanBingoCard(base64, dimensions);
+      }
+
       if (abortControllerRef.current?.signal.aborted) return;
 
+      const { grid, rows, cols } = result;
+
+      // Optionally notify user about detected size
+      if (rows && cols && (rows !== dimensions.rows || cols !== dimensions.cols)) {
+        setScanStatus(`Detected card as ${rows}x${cols}. Switching to manual for review.`);
+      } else {
+        setScanStatus('Identified grid — please review.');
+      }
+
       // Convert scan result to string grid for editing
-      const stringGrid = scannedNumbers.map(row => 
-        row.map(val => val === null ? 'FREE' : val.toString())
-      );
-      
+      const stringGrid = grid.map((row: any[]) => row.map(val => (val === null ? 'FREE' : val.toString())));
+
       setGridData(stringGrid);
       setMode('manual'); // Switch to manual for review
     } catch (err: any) {

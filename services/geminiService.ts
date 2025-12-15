@@ -15,13 +15,16 @@ export const fileToGenerativePart = async (file: File): Promise<string> => {
 
 export const scanBingoCard = async (
   base64Image: string,
-  dimensions: GridDimensions
-): Promise<CellValue[][]> => {
+  dimensions?: GridDimensions
+): Promise<{ grid: CellValue[][]; rows?: number; cols?: number }> => {
   try {
+    const payload: any = { image: base64Image };
+    if (dimensions) payload.dimensions = dimensions;
+
     const res = await fetch('/api/gemini/scan', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ image: base64Image, dimensions })
+      body: JSON.stringify(payload)
     });
 
     if (!res.ok) {
@@ -30,7 +33,7 @@ export const scanBingoCard = async (
     }
 
     const data = await res.json();
-    return data.grid as CellValue[][];
+    return { grid: data.grid as CellValue[][], rows: data.rows, cols: data.cols };
   } catch (error) {
     console.error('Error scanning card (client):', error);
     throw error;
