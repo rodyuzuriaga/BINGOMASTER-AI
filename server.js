@@ -30,8 +30,8 @@ app.post('/api/gemini/scan', async (req, res) => {
 
     const detect = !dimensions;
     const prompt = detect ?
-      `Detect the grid size (rows and columns) of the Bingo card in the provided image, then extract the numbers into a JSON object {"rows": <n>, "cols": <m>, "grid": [[...]]}. Use 0 for free spaces. Return ONLY the JSON object.` :
-      `Extract a ${dimensions.rows}x${dimensions.cols} bingo grid from the image and return a JSON array of integers (0 for free). Return ONLY JSON.`;
+      `STRICT INSTRUCTIONS: Analyze the provided image. If it is NOT a Bingo card with a visible grid of numbers, return {"error": "not_a_bingo_card"}. If it IS a valid Bingo card, detect the exact grid size (rows and columns), then extract ALL visible numbers into a JSON object with this EXACT structure: {"rows": <number>, "cols": <number>, "grid": [[array of integers]]}. Use 0 for free spaces or empty cells. Return ONLY valid JSON, no additional text.` :
+      `STRICT INSTRUCTIONS: Extract ALL numbers from this ${dimensions.rows}x${dimensions.cols} Bingo card grid. Return a JSON array of ${dimensions.rows} rows, each containing ${dimensions.cols} integers. Use 0 for free spaces or empty cells. If the image is not a valid Bingo card, return {"error": "not_a_bingo_card"}. Return ONLY valid JSON, no additional text.`;
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
@@ -80,6 +80,13 @@ app.post('/api/gemini/scan', async (req, res) => {
       throw new Error('No JSON found in AI response');
     }
     const parsed = JSON.parse(raw);
+    
+    // Check if AI detected error
+    if (parsed.error) {
+      console.log('[api/scan] AI reported error:', parsed.error);
+      return res.status(400).json({ error: parsed.error === 'not_a_bingo_card' ? 'La imagen no parece ser una cartilla de bingo válida. Por favor sube una foto clara de una cartilla.' : parsed.error });
+    }
+
     let rows = dimensions?.rows;
     let cols = dimensions?.cols;
     let rawGrid;
@@ -93,7 +100,14 @@ app.post('/api/gemini/scan', async (req, res) => {
       rows = parsed.rows ?? rawGrid.length;
       cols = parsed.cols ?? (rawGrid[0]?.length ?? 0);
     } else {
-      throw new Error('Unexpected response from AI');
+      console.error('[api/scan] unexpected AI response structure:', parsed);
+      return res.status(500).json({ error: 'No se pudo interpretar la respuesta del modelo. Intenta con una foto más clara.' });
+    }
+
+    // Validate grid is not empty
+    if (!rawGrid || rawGrid.length === 0 || !rows || !cols) {
+      console.error('[api/scan] empty or invalid grid detected');
+      return res.status(400).json({ error: 'No se detectó ninguna grilla válida en la imagen.' });
     }
 
     const normalized = rawGrid.map((row) => row.map((n) => (n === 0 ? null : n)));

@@ -6,13 +6,14 @@
   "scripts": {
     "dev": "vite",
     "dev:api": "node server.js",
-    "dev:api:debug": "DEBUG_AI_RESPONSE=true node server.js",
+    "dev:api:debug": "set DEBUG_AI_RESPONSE=true && node server.js",
     "dev:all": "concurrently \"npm run dev:api\" \"npm run dev\"",
     "build": "vite build",
     "preview": "vite preview"
   },
   "dependencies": {
     "@google/genai": "^1.33.0",
+    "dotenv": "^17.2.3",
     "express": "^5.2.1",
     "lucide-react": "^0.561.0",
     "react": "^19.2.3",

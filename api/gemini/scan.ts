@@ -23,8 +23,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const ai = new GoogleGenAI({ apiKey });
     const detect = !dimensions;
     const prompt = detect ?
-      `Detect the grid size (rows and columns) of the Bingo card in the provided image, then extract the numbers into a JSON object {"rows": <n>, "cols": <m>, "grid": [[...]]}. Use 0 for free spaces. Return ONLY the JSON object.` :
-      `Analyze this image of a Bingo card. It should be a grid with ${dimensions.rows} rows and ${dimensions.cols} columns. Extract the numbers into a JSON 2D array (rows x cols). Use 0 for free spaces. Return ONLY the JSON array.`;
+      `STRICT INSTRUCTIONS: Analyze the provided image. If it is NOT a Bingo card with a visible grid of numbers, return {"error": "not_a_bingo_card"}. If it IS a valid Bingo card, detect the exact grid size (rows and columns), then extract ALL visible numbers into a JSON object with this EXACT structure: {"rows": <number>, "cols": <number>, "grid": [[array of integers]]}. Use 0 for free spaces or empty cells. Return ONLY valid JSON, no additional text.` :
+      `STRICT INSTRUCTIONS: Extract ALL numbers from this ${dimensions.rows}x${dimensions.cols} Bingo card grid. Return a JSON array of ${dimensions.rows} rows, each containing ${dimensions.cols} integers. Use 0 for free spaces or empty cells. If the image is not a valid Bingo card, return {"error": "not_a_bingo_card"}. Return ONLY valid JSON, no additional text.`;
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
@@ -43,7 +43,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!jsonText) throw new Error('No text returned from AI');
 
     const parsed = JSON.parse(jsonText);
-    // parsed can either be an array (grid) or an object {rows, cols, grid}
+    
+    // Check if AI detected error
+    if (parsed.error) {
+      console.log('AI reported error:', parsed.error);
+      return res.status(400).json({ error: parsed.error === 'not_a_bingo_card' ? 'La imagen no parece ser una cartilla de bingo válida. Por favor sube una foto clara de una cartilla.' : parsed.error });
+    }
+
     let rows = dimensions?.rows;
     let cols = dimensions?.cols;
     let rawGrid: number[][];
@@ -57,7 +63,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       rows = parsed.rows ?? rawGrid.length;
       cols = parsed.cols ?? (rawGrid[0]?.length ?? 0);
     } else {
-      throw new Error('Unexpected response from AI');
+      console.error('unexpected AI response structure:', parsed);
+      return res.status(500).json({ error: 'No se pudo interpretar la respuesta del modelo. Intenta con una foto más clara.' });
+    }
+
+    // Validate grid is not empty
+    if (!rawGrid || rawGrid.length === 0 || !rows || !cols) {
+      console.error('empty or invalid grid detected');
+      return res.status(400).json({ error: 'No se detectó ninguna grilla válida en la imagen.' });
     }
 
     const normalized = rawGrid.map((row: number[]) => row.map(n => (n === 0 ? null : n)));
