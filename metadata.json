@@ -1,0 +1,7 @@
+{
+  "name": "BingoMaster AI",
+  "description": "A smart Bingo card management system with AI scanning capabilities to track multiple cards simultaneously.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
