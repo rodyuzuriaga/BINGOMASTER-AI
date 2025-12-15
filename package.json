@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "dev:api": "node server.js",
+    "dev:api:debug": "DEBUG_AI_RESPONSE=true node server.js",
     "dev:all": "concurrently \"npm run dev:api\" \"npm run dev\"",
     "build": "vite build",
     "preview": "vite preview"

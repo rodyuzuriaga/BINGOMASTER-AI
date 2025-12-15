@@ -1,5 +1,9 @@
 import express from 'express';
+import dotenv from 'dotenv';
 import { GoogleGenAI, Type } from '@google/genai';
+
+// Load local env file for development (not committed)
+dotenv.config({ path: '.env.local' });
 
 const app = express();
 app.use(express.json({ limit: '10mb' }));
@@ -42,6 +46,10 @@ app.post('/api/gemini/scan', async (req, res) => {
         responseSchema: { type: Type.ARRAY }
       }
     });
+
+    if (process.env.DEBUG_AI_RESPONSE === 'true') {
+      console.log('[api/scan] raw AI response:', response.text);
+    }
 
     const parsed = JSON.parse(response.text);
     let rows = dimensions?.rows;
