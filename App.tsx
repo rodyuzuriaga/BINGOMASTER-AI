@@ -90,6 +90,11 @@ function App() {
     setCards(prev => [...prev, newCard]);
   };
 
+    const handleDetectSize = (rows: number, cols: number) => {
+        setDimensions({ rows, cols });
+        setIsCustomSize(true);
+    };
+
   const handleCallNumber = (e: React.FormEvent) => {
     e.preventDefault();
     const num = parseInt(currentInput);
@@ -481,13 +486,14 @@ function App() {
       </div>
 
       {/* Modals */}
-      <AddCardModal 
-        isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
-        onAdd={handleAddCard}
-        dimensions={dimensions}
-        centerFree={centerFree}
-      />
+            <AddCardModal 
+                isOpen={isAddModalOpen}
+                onClose={() => setIsAddModalOpen(false)}
+                onAdd={handleAddCard}
+                onDetectSize={handleDetectSize}
+                dimensions={dimensions}
+                centerFree={centerFree}
+            />
 
     </div>
   );

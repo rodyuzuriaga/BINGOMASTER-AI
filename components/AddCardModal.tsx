@@ -7,6 +7,7 @@ interface AddCardModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAdd: (numbers: CellValue[][]) => void;
+  onDetectSize?: (rows: number, cols: number) => void;
   dimensions: GridDimensions;
   centerFree: boolean;
 }
@@ -25,14 +26,15 @@ const AddCardModal: React.FC<AddCardModalProps> = ({ isOpen, onClose, onAdd, dim
   const abortControllerRef = useRef<AbortController | null>(null);
 
   // Initialize grid when opening or changing dimensions
+  const [detectedGrid, setDetectedGrid] = useState<string[][] | null>(null);
+
   React.useEffect(() => {
-    if (isOpen) {
+    // Initialize only if opening modal and no detected grid present
+    if (isOpen && !detectedGrid) {
       const initialGrid = Array.from({ length: dimensions.rows }, (_, r) => 
         Array.from({ length: dimensions.cols }, (_, c) => {
-          // Pre-fill center if configured AND dimensions are odd
           const isCenterRow = dimensions.rows % 2 !== 0 && r === Math.floor(dimensions.rows/2);
           const isCenterCol = dimensions.cols % 2 !== 0 && c === Math.floor(dimensions.cols/2);
-          
           return (isCenterRow && isCenterCol && centerFree) ? 'FREE' : '';
         })
       );
@@ -42,7 +44,9 @@ const AddCardModal: React.FC<AddCardModalProps> = ({ isOpen, onClose, onAdd, dim
       setPreviewUrl(null);
       setIsScanning(false);
     }
-  }, [isOpen, dimensions, centerFree]);
+    // If modal closed, clear detected grid
+    if (!isOpen) setDetectedGrid(null);
+  }, [isOpen, dimensions, centerFree, detectedGrid]);
 
   // Clean up preview URL
   React.useEffect(() => {
@@ -119,17 +123,17 @@ const AddCardModal: React.FC<AddCardModalProps> = ({ isOpen, onClose, onAdd, dim
 
       const { grid, rows, cols } = result;
 
-      // Optionally notify user about detected size
+      // Optionally notify user about detected size and notify parent
       if (rows && cols && (rows !== dimensions.rows || cols !== dimensions.cols)) {
         setScanStatus(`Detected card as ${rows}x${cols}. Switching to manual for review.`);
+        setDetectedGrid(grid.map((row: any[]) => row.map(val => (val === null ? 'FREE' : val.toString()))));
+        if (onDetectSize) onDetectSize(rows, cols);
       } else {
         setScanStatus('Identified grid — please review.');
+        const stringGrid = grid.map((row: any[]) => row.map(val => (val === null ? 'FREE' : val.toString())));
+        setGridData(stringGrid);
       }
 
-      // Convert scan result to string grid for editing
-      const stringGrid = grid.map((row: any[]) => row.map(val => (val === null ? 'FREE' : val.toString())));
-
-      setGridData(stringGrid);
       setMode('manual'); // Switch to manual for review
     } catch (err: any) {
       if (!abortControllerRef.current?.signal.aborted) {

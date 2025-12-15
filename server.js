@@ -51,7 +51,35 @@ app.post('/api/gemini/scan', async (req, res) => {
       console.log('[api/scan] raw AI response:', response.text);
     }
 
-    const parsed = JSON.parse(response.text);
+    // Helper: try to extract JSON object or array from a mixed response
+    const extractJSON = (text) => {
+      text = text.trim();
+      if (!text) return null;
+      // If looks like pure JSON, return it
+      if ((text[0] === '{' && text[text.length - 1] === '}') || (text[0] === '[' && text[text.length - 1] === ']')) {
+        return text;
+      }
+      // Try to locate first { ... } or [ ... ] block
+      const firstObj = text.indexOf('{');
+      const firstArr = text.indexOf('[');
+      let start = -1, end = -1;
+      if (firstObj !== -1 && (firstArr === -1 || firstObj < firstArr)) {
+        start = firstObj;
+        end = text.lastIndexOf('}');
+      } else if (firstArr !== -1) {
+        start = firstArr;
+        end = text.lastIndexOf(']');
+      }
+      if (start !== -1 && end !== -1 && end > start) return text.substring(start, end + 1);
+      return null;
+    };
+
+    const raw = extractJSON(response.text);
+    if (!raw) {
+      if (process.env.DEBUG_AI_RESPONSE === 'true') console.error('[api/scan] could not extract JSON from AI response');
+      throw new Error('No JSON found in AI response');
+    }
+    const parsed = JSON.parse(raw);
     let rows = dimensions?.rows;
     let cols = dimensions?.cols;
     let rawGrid;
