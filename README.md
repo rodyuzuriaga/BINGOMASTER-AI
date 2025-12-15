@@ -71,6 +71,8 @@ Important: this repository uses a serverless proxy for Gemini. Do NOT place your
 
 Vercel will run `npm run build` and serve the `dist/` directory by default (see `vercel.json`).
 
+Favicon: this project includes a browser-tab favicon at `/favicon.svg` (a browser-window-style logo). Replace it with your preferred icon if desired.
+
 ## 🎮 How to Play
 
 1. **Add Cards:** Click the **"Add Card"** button.
