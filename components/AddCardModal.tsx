@@ -116,10 +116,10 @@ const AddCardModal: React.FC<AddCardModalProps> = ({ isOpen, onClose, onAdd, dim
       
       setGridData(stringGrid);
       setMode('manual'); // Switch to manual for review
-    } catch (err) {
+    } catch (err: any) {
       if (!abortControllerRef.current?.signal.aborted) {
         console.error(err);
-        setScanError("Could not identify grid. Ensure the photo is clear, well-lit, and contains only the Bingo card.");
+        setScanError(`Could not identify grid: ${err?.message ?? String(err)}. Ensure the photo is clear, well-lit, and contains only the Bingo card.`);
       }
     } finally {
       setIsScanning(false);

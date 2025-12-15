@@ -58,6 +58,18 @@ Stop checking cards one by one! This app uses **Computer Vision (via Google Gemi
    npm run dev
    ```
 
+Local API server (for scanning)
+
+If you want to test the Gemini proxy locally (without deploying to Vercel), run the local API server in a separate terminal and then the frontend:
+
+```bash
+npm run dev:api    # starts local server on port 3001 (returns mock results if GEMINI_API_KEY is not set)
+npm run dev        # starts Vite dev server which proxies /api -> localhost:3001
+# or run both with: npm run dev:all
+```
+
+If scans return errors, check the browser console and the terminal where `npm run dev:api` is running for details.
+
 ## ☁️ Deploying to Vercel
 
 - Connect your GitHub repository to Vercel via the Vercel dashboard.
